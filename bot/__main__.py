@@ -6,7 +6,7 @@ from time import time
 from sys import executable
 from telegram import InlineKeyboardMarkup
 from telegram.ext import CommandHandler
-
+from bot.helper.telegram_helper.message_utils import auto_delete_message
 from bot import bot, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, AUTHORIZED_CHATS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER, DB_URI, alive, TITLE_NAME, app, main_loop, rss_session, USER_SESSION_STRING
 from .helper.ext_utils.fs_utils import start_cleanup, clean_all, exit_clean_up
 from .helper.ext_utils.telegraph_helper import telegraph
