@@ -9,7 +9,7 @@ from subprocess import run as srun
 from pathlib import PurePath
 from html import escape
 from telegram.ext import CommandHandler
-from telegram import InlineKeyboardMarkup
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
 
 from bot import bot, Interval, INDEX_URL, VIEW_LINK, aria2, QB_SEED, dispatcher, DOWNLOAD_DIR, \
                 download_dict, download_dict_lock, TG_SPLIT_SIZE, LOGGER, MEGA_KEY, DB_URI, INCOMPLETE_TASK_NOTIFIER, \
