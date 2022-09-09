@@ -13,7 +13,7 @@ from telegram import InlineKeyboardMarkup
 
 from bot import Interval, INDEX_URL, VIEW_LINK, aria2, QB_SEED, dispatcher, DOWNLOAD_DIR, \
                 download_dict, download_dict_lock, TG_SPLIT_SIZE, LOGGER, MEGA_KEY, DB_URI, INCOMPLETE_TASK_NOTIFIER, \
-                SOURCE_LINK, TITLE_NAME, LEECH_LOG, LINK_LOGS, MIRROR_LOGS, BOT_PM
+                SOURCE_LINK, TITLE_NAME, LEECH_LOG, LINK_LOGS, MIRROR_LOGS, BOT_PM, CMD_INDEX
 from bot.helper.ext_utils.bot_utils import is_url, is_magnet, is_gdtot_link, is_mega_link, is_gdrive_link, get_content_type
 from bot.helper.ext_utils.fs_utils import get_base_name, get_path_size, split_file, clean_download
 from bot.helper.ext_utils.exceptions import DirectDownloadLinkException, NotSupportedExtractionArchive
@@ -182,7 +182,7 @@ class MirrorListener:
             except Exception as e:
                 LOGGER.error(str(e))
             count = len(download_dict)
-        msg = f"{self.tag} your download has been stopped due to: \n\n{error} \nBetter Luck next time!"
+        msg = f"{self.tag} your download has been stopped due to: \n{error} \N\nBetter Luck next time!"
         sendMessage(msg, self.bot, self.message)
         if count == 0:
             self.clean()
@@ -496,16 +496,7 @@ def _mirror(bot, message, isZip=False, extract=False, isQbit=False, isLeech=Fals
                 link = file.get_file().file_path
 
     if not is_url(link) and not is_magnet(link) and not ospath.exists(link):
-        help_msg = "<b>Send link along with command line:</b>"
-        help_msg += "\n<code>/command</code> {link} |newname pswd: xx [zip/unzip]"
-        help_msg += "\n\n<b>By replying to link or file:</b>"
-        help_msg += "\n<code>/command</code> |newname pswd: xx [zip/unzip]"
-        help_msg += "\n\n<b>Direct link authorization:</b>"
-        help_msg += "\n<code>/command</code> {link} |newname pswd: xx\nusername\npassword"
-        help_msg += "\n\n<b>Qbittorrent selection:</b>"
-        help_msg += "\n<code>/qbcommand</code> <b>s</b> {link} or by replying to {file/link}"
-        help_msg += "\n\n<b>Multi links only by replying to first link or file:</b>"
-        help_msg += "\n<code>/command</code> 10(number of links/files)"
+        help_msg = F"<b>Kindly Send Command by Replying to Link or Check /help{CMD_INDEX} \n Or Check Others How They are Using me!</b>"
         return sendMessage(help_msg, bot, message)
 
     LOGGER.info(link)
@@ -527,6 +518,7 @@ def _mirror(bot, message, isZip=False, extract=False, isQbit=False, isLeech=Fals
 
     if is_gdrive_link(link):
         if not isZip and not extract and not isLeech:
+            gmsg = f"Dear User, For Mirroring Google Drive Links, use Commands Given below\n\n"
             gmsg = f"Use /{BotCommands.CloneCommand} to clone Google Drive file/folder\n\n"
             gmsg += f"Use /{BotCommands.ZipMirrorCommand} to make zip of Google Drive folder\n\n"
             gmsg += f"Use /{BotCommands.UnzipMirrorCommand} to extracts Google Drive archive file"
