@@ -256,7 +256,12 @@ if MEGA_KEY is not None:
         log_info("Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!")
 else:
     sleep(1.5)
-
+try:
+    AUTO_DELETE_UPLOAD_MESSAGE_DURATION = int(getConfig('AUTO_DELETE_UPLOAD_MESSAGE_DURATION'))
+except KeyError as e:
+    AUTO_DELETE_UPLOAD_MESSAGE_DURATION = -1
+    LOGGER.warning("AUTO_DELETE_UPLOAD_MESSAGE_DURATION var missing!")
+    pass
 try:
     BASE_URL = getConfig('BASE_URL_OF_BOT').rstrip("/")
     if len(BASE_URL) == 0:
