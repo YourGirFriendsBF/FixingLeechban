@@ -118,7 +118,54 @@ SUDO_USERS = set()
 AS_DOC_USERS = set()
 AS_MEDIA_USERS = set()
 EXTENSION_FILTER = set()
-
+LEECH_LOG = set()
+MIRROR_LOGS = set()
+LINK_LOGS = set()
+LEECH_LOG_ALT = set()
+try:
+    SOURCE_LINK = getConfig('SOURCE_LINK')
+    SOURCE_LINK = SOURCE_LINK.lower() == 'true'
+except KeyError:
+    SOURCE_LINK = False    
+try:
+    aid = getConfig('LINK_LOGS')
+    aid = aid.split(' ')
+    for _id in aid:
+        LINK_LOGS.add(int(_id))
+except:
+    pass
+try:
+    aid = getConfig('LEECH_LOG_ALT')
+    aid = aid.split(' ')
+    for _id in aid:
+        LEECH_LOG_ALT.add(int(_id))
+except:
+    pass
+try:
+    aid = getConfig('LEECH_LOG')
+    aid = aid.split(' ')
+    for _id in aid:
+        LEECH_LOG.add(int(_id))
+except:
+    pass
+try:
+    aid = getConfig('MIRROR_LOGS')
+    aid = aid.split(' ')
+    for _id in aid:
+        MIRROR_LOGS.add(int(_id))
+except:
+    pass
+try:
+    BOT_PM = getConfig('BOT_PM')
+    BOT_PM = BOT_PM.lower() == 'true'
+except KeyError:
+    BOT_PM = False
+try:
+    TITLE_NAME = getConfig('TITLE_NAME')
+    if len(TITLE_NAME) == 0:
+        TITLE_NAME = 'Dhruv-Mirror'
+except KeyError:
+    TITLE_NAME = 'Dhruv-Mirror'    
 try:
     aid = getConfig('AUTHORIZED_CHATS')
     aid = aid.split()
