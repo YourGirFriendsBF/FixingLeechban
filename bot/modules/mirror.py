@@ -12,7 +12,8 @@ from telegram.ext import CommandHandler
 from telegram import InlineKeyboardMarkup
 
 from bot import Interval, INDEX_URL, VIEW_LINK, aria2, QB_SEED, dispatcher, DOWNLOAD_DIR, \
-                download_dict, download_dict_lock, TG_SPLIT_SIZE, LOGGER, MEGA_KEY, DB_URI, INCOMPLETE_TASK_NOTIFIER
+                download_dict, download_dict_lock, TG_SPLIT_SIZE, LOGGER, MEGA_KEY, DB_URI, INCOMPLETE_TASK_NOTIFIER, \
+                SOURCE_LINK, TITLE_NAME, LEECH_LOG, LINK_LOGS, MIRROR_LOGS, BOT_PM
 from bot.helper.ext_utils.bot_utils import is_url, is_magnet, is_gdtot_link, is_mega_link, is_gdrive_link, get_content_type
 from bot.helper.ext_utils.fs_utils import get_base_name, get_path_size, split_file, clean_download
 from bot.helper.ext_utils.exceptions import DirectDownloadLinkException, NotSupportedExtractionArchive
@@ -31,7 +32,7 @@ from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
 from bot.helper.mirror_utils.upload_utils.pyrogramEngine import TgUploader
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.filters import CustomFilters
-from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, delete_all_messages, update_all_messages
+from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, delete_all_messages, update_all_messages, auto_delete_upload_message, auto_delete_message
 from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot.helper.ext_utils.db_handler import DbManger
 
@@ -47,6 +48,7 @@ class MirrorListener:
         self.isLeech = isLeech
         self.pswd = pswd
         self.tag = tag
+        self.user_id = self.message.from_user.id
         self.isPrivate = self.message.chat.type in ['private', 'group']
 
     def clean(self):
@@ -180,7 +182,7 @@ class MirrorListener:
             except Exception as e:
                 LOGGER.error(str(e))
             count = len(download_dict)
-        msg = f"{self.tag} your download has been stopped due to: {error}"
+        msg = f"{self.tag} your download has been stopped due to: \n\n{error} \nBetter Luck next time!"
         sendMessage(msg, self.bot, self.message)
         if count == 0:
             self.clean()
@@ -191,18 +193,77 @@ class MirrorListener:
             DbManger().rm_complete_task(self.message.link)
 
     def onUploadComplete(self, link: str, size, files, folders, typ, name: str):
+        buttons = ButtonMaker()
+        # this is inspired by def mirror to get the link from message
+        mesg = self.message.text.split('\n')
+        message_args = mesg[0].split(' ', maxsplit=1)
+        reply_to = self.message.reply_to_message
+        slmsg = f"Added by: {self.tag} \n👥 User ID: <code>{self.user_id}</code>\n\n"
+        if LINK_LOGS:
+            try:
+                source_link = f"<code>{message_args[1]}</code>"
+                for link_log in LINK_LOGS:
+                    bot.sendMessage(link_log, text=slmsg + source_link, parse_mode=ParseMode.HTML )
+            except IndexError:
+                pass
+            if reply_to is not None:
+                try:
+                    reply_text = reply_to.text
+                    if is_url(reply_text):
+                        source_link = f"<code>{reply_text.strip()}</code>"
+                        for link_log in LINK_LOGS:
+                            bot.sendMessage(chat_id=link_log, text=slmsg + source_link, parse_mode=ParseMode.HTML )
+                except TypeError:
+                    pass
         if not self.isPrivate and INCOMPLETE_TASK_NOTIFIER and DB_URI is not None:
             DbManger().rm_complete_task(self.message.link)
         msg = f"<b>Name: </b><code>{escape(name)}</code>\n\n<b>Size: </b>{size}"
         if self.isLeech:
+            if SOURCE_LINK is True:
+                try:
+                    source_link = message_args[1]
+                    if is_magnet(source_link):
+                        link = telegraph.create_page(
+                        title='Dhruv-Mirror Source Link',
+                        content=source_link,
+                    )["path"]
+                        buttons.buildbutton(f"🔗 Source Link 🔗", f"https://telegra.ph/{link}")
+                    else:
+                        buttons.buildbutton(f"🔗 Source Link 🔗", source_link)
+                except Exception as e:
+                    LOGGER.warning(e)
+                pass
+                if reply_to is not None:
+                    try:
+                        reply_text = reply_to.text
+                        if is_url(reply_text):
+                            source_link = reply_text.strip()
+                            if is_magnet(source_link):
+                                link = telegraph.create_page(
+                                    title='Dhruv-Mirror Source Link',
+                                    content=source_link,
+                                )["path"]
+                                buttons.buildbutton(f"🔗 Source Link 🔗", f"https://telegra.ph/{link}")
+                            else:
+                                buttons.buildbutton(f"🔗 Source Link 🔗", source_link)
+                    except Exception as e:
+                        LOGGER.warning(e)
+                        pass
+            if BOT_PM:
+                bot_d = bot.get_me()
+                b_uname = bot_d.username
+                botstart = f"http://t.me/{b_uname}"
+                buttons.buildbutton("Private File", f"{botstart}")
             msg += f'\n<b>Total Files: </b>{folders}'
             if typ != 0:
                 msg += f'\n<b>Corrupted Files: </b>{typ}'
-            msg += f'\n<b>cc: </b>{self.tag}\n\n'
+            msg += f'\n\n<b>Hey </b>{self.tag} <b>Your task is Completed. Join Leech Dump if you want access to the file.</b>'
+            msg += f'\n<b>It Tooks:</b> {get_readable_time(time() - self.message.date.timestamp())}'
+            msg += f'\n\n<b>Thank You For using {TITLE_NAME}! Keep Supporting & Keep Loving!</b>'
             if not files:
-                sendMessage(msg, self.bot, self.message)
+                sendMarkup(msg + fmsg, self.bot, self.message, InlineKeyboardMarkup(buttons.build_menu(2)))
             else:
-                fmsg = ''
+                fmsg = '\n<b>Your Files Are:</b>\n'
                 for index, (link, name) in enumerate(files.items(), start=1):
                     fmsg += f"{index}. <a href='{link}'>{name}</a>\n"
                     if len(fmsg.encode() + msg.encode()) > 4000:
@@ -210,13 +271,22 @@ class MirrorListener:
                         sleep(1)
                         fmsg = ''
                 if fmsg != '':
-                    sendMessage(msg + fmsg, self.bot, self.message)
+                    sendMarkup(msg + fmsg, self.bot, self.message, InlineKeyboardMarkup(buttons.build_menu(2)))
+                if LEECH_LOG:
+                    try:
+                        for chatid in LEECH_LOG:
+                            bot.sendMessage(chat_id=chatid, text=msg + fmsg,
+                                            parse_mode=ParseMode.HTML)
+                    except Exception as e:
+                        LOGGER.warning(e)    
         else:
-            msg += f'\n\n<b>Type: </b>{typ}'
+            msg += f'\n<b>Type: </b>{typ}'
             if ospath.isdir(f'{DOWNLOAD_DIR}{self.uid}/{name}'):
                 msg += f'\n<b>SubFolders: </b>{folders}'
                 msg += f'\n<b>Files: </b>{files}'
-            msg += f'\n\n<b>cc: </b>{self.tag}'
+            msg += f'\n\n<b>Hey </b>{self.tag} <b>Your task is Completed. Join Dump if you want access to the file.</b>'
+            msg += f'\n<b>It Tooks:</b> {get_readable_time(time() - self.message.date.timestamp())}'
+            msg += f'\n\n<b>Thank You For using {TITLE_NAME}! Keep Supporting & Keep Loving!</b>'
             buttons = ButtonMaker()
             buttons.buildbutton("☁️ Drive Link", link)
             LOGGER.info(f'Done Uploading {name}')
@@ -230,8 +300,63 @@ class MirrorListener:
                     buttons.buildbutton("⚡ Index Link", share_url)
                     if VIEW_LINK:
                         share_urls = f'{INDEX_URL}/{url_path}?a=view'
-                        buttons.buildbutton("🌐 View Link", share_urls)
-            sendMarkup(msg, self.bot, self.message, InlineKeyboardMarkup(buttons.build_menu(2)))
+                        buttons.buildbutton("🌐 View Link 🌐", share_urls)
+            if SOURCE_LINK is True:
+                try:
+                    mesg = message_args[1]
+                    if is_magnet(mesg):
+                        link = telegraph.create_page(
+                            title='Helios-Mirror Source Link',
+                            content=mesg,
+                        )["path"]
+                        buttons.buildbutton(f"🔗 Source Link 🔗", f"https://telegra.ph/{link}")
+                    elif is_url(mesg):
+                        source_link = mesg
+                        if source_link.startswith(("|", "pswd: ")):
+                            pass
+                        else:
+                            buttons.buildbutton(f"🔗 Source Link 🔗", source_link)
+                    else:
+                        pass
+                except Exception as e:
+                    LOGGER.warning(e)
+                    pass
+            if reply_to is not None:
+                try:
+                    reply_text = reply_to.text
+                    if is_url(reply_text):
+                        source_link = reply_text.strip()
+                        if is_magnet(source_link):
+                            link = telegraph.create_page(
+                                title='Dhruv-Mirror Source Link',
+                                content=source_link,
+                            )["path"]
+                            buttons.buildbutton(f"🔗 Source Link 🔗", f"https://telegra.ph/{link}")
+                        else:
+                            buttons.buildbutton(f"🔗 Source Link 🔗", source_link)
+                except Exception as e:
+                    LOGGER.warning(e)
+                    pass
+            else:
+                pass
+            uploadmsg = sendMarkup(msg, self.bot, self.message, InlineKeyboardMarkup(buttons.build_menu(2)))
+            Thread(target=auto_delete_upload_message, args=(bot, self.message, uploadmsg)).start()
+            if MIRROR_LOGS:
+                try:
+                    for chatid in MIRROR_LOGS:
+                        bot.sendMessage(chat_id=chatid, text=msg,
+                                        reply_markup=InlineKeyboardMarkup(buttons.build_menu(2)),
+                                        parse_mode=ParseMode.HTML)
+                except Exception as e:
+                    LOGGER.warning(e)
+            if BOT_PM and self.message.chat.type != 'private':
+                try:
+                    bot.sendMessage(chat_id=self.user_id, text=msg,
+                                    reply_markup=InlineKeyboardMarkup(buttons.build_menu(2)),
+                                    parse_mode=ParseMode.HTML)
+                except Exception as e:
+                    LOGGER.warning(e)
+                    return
             if self.isQbit and QB_SEED and not self.extract:
                 if self.isZip:
                     try:
@@ -269,7 +394,25 @@ class MirrorListener:
         if not self.isPrivate and INCOMPLETE_TASK_NOTIFIER and DB_URI is not None:
             DbManger().rm_complete_task(self.message.link)
 
-def _mirror(bot, message, isZip=False, extract=False, isQbit=False, isLeech=False, pswd=None, multi=0):
+def _mirror(bot, message, isZip=False, extract=False, isQbit=False, isLeech=False, pswd=None, multi=0, select=False, seed=False):
+    buttons = ButtonMaker()
+    
+    if BOT_PM and message.chat.type != 'private':
+        try:
+            msg1 = f'Added your Requested link to Download !\nWill send here once done.'
+            send = bot.sendMessage(message.from_user.id, text=msg1)
+        except Exception as e:
+            LOGGER.warning(e)
+            bot_d = bot.get_me()
+            b_uname = bot_d.username
+            uname = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
+            botstart = f"http://t.me/{b_uname}"
+            buttons.buildbutton("Start Me", f"{botstart}")
+            startwarn = f"Dear {uname},\n\n<b>I found that you haven't started me in Private yet.</b>\n\n" \
+                        f"Start me in Private & then Add your task here again!"
+            message = sendMarkup(startwarn, bot, message, InlineKeyboardMarkup(buttons.build_menu(2)))
+            Thread(target=auto_delete_message, args=(bot, message, message)).start()
+            return
     mesg = message.text.split('\n')
     message_args = mesg[0].split(maxsplit=1)
     name_args = mesg[0].split('|', maxsplit=1)
